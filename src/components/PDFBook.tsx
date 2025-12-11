@@ -15,7 +15,6 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
     const [zoom, setZoom] = useState(1);
     const [aspectRatio, setAspectRatio] = useState(709 / 500); // 高さ / 幅。初期は従来値
     const ratioFixedRef = useRef(false);
-    const pinchStartRef = useRef<{ dist: number; zoom: number } | null>(null);
 
     // ウィンドウサイズ更新
     useEffect(() => {
@@ -46,15 +45,11 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
 
     const onPageFlip = useCallback(() => setShowSwipeHint(false), []);
 
-    // FlipBookのサイズを動的に計算（アルバムのアスペクト比を維持）
+    // FlipBookのサイズを動的に計算
     // モバイルで左側に余白が出ないよう、横幅を端まで使う
-    const baseWidth = isMobile ? windowDimensions.width : 620;
+    const bookWidth = isMobile ? windowDimensions.width : 620;
     const controlReserve = 72; // ズームUIぶんの余白
-    const targetHeight = baseWidth * aspectRatio;
-    const maxHeight = windowDimensions.height * 0.9 - controlReserve;
-    const scale = targetHeight > 0 ? Math.min(1, maxHeight / targetHeight) : 1; // 高さ制限が入る場合は縮小して比率維持
-    const bookWidth = baseWidth * scale;
-    const bookHeight = targetHeight * scale;
+    const bookHeight = Math.min(windowDimensions.height * 0.9 - controlReserve, bookWidth * aspectRatio);
 
     const nextFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipNext(); };
     const prevFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipPrev(); };
@@ -84,29 +79,6 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
             setAspectRatio(ratio);
             ratioFixedRef.current = true;
         }
-    };
-
-    // ピンチズーム（モバイル向け）
-    const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-        if (event.touches.length === 2) {
-            const [t1, t2] = [event.touches[0], event.touches[1]];
-            const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            pinchStartRef.current = { dist, zoom };
-        }
-    };
-
-    const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-        if (event.touches.length === 2 && pinchStartRef.current) {
-            event.preventDefault();
-            const [t1, t2] = [event.touches[0], event.touches[1]];
-            const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            const scale = dist / pinchStartRef.current.dist;
-            setZoom(clampZoom(pinchStartRef.current.zoom * scale));
-        }
-    };
-
-    const handleTouchEnd = () => {
-        if (pinchStartRef.current) pinchStartRef.current = null;
     };
 
     return (
@@ -166,8 +138,8 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                             >
                                 {pngFiles.length > 0 && (
                                     <HTMLFlipBook
-                                        width={scaledWidth}
-                                        height={scaledHeight}
+                                        width={bookWidth}
+                                        height={bookHeight}
                                         size="fixed"
                                         minWidth={300}
                                         maxWidth={2000}
@@ -181,13 +153,13 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                         style={{ margin: '0 auto', pointerEvents: isZooming ? 'none' : 'auto' }}
                                         startPage={0}
                                         drawShadow={false}
-                                flippingTime={650}
+                                        flippingTime={1000}
                                         usePortrait={isMobile}
                                         startZIndex={0}
                                         autoSize={true}
                                         clickEventForward={true}
                                         useMouseEvents={true}
-                                swipeDistance={15}
+                                        swipeDistance={30}
                                         showPageCorners={false}
                                         disableFlipByClick={true}
                                         onFlip={onPageFlip}
@@ -198,9 +170,9 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                                     <img
                                                         src={url}
                                                         alt={`Album ${index + 1}`}
-                                                        width={scaledWidth}
+                                                        width={bookWidth}
                                                         loading="lazy"
-                                                        height={scaledHeight}
+                                                        height={bookHeight}
                                                         onLoad={handleImageLoad}
                                                     style={{
                                                         display: 'block',
