@@ -2,7 +2,7 @@ import PDFBook from './components/PDFBook';
 import './App.css';
 
 function App() {
-  const pdfFiles = Array.from({ length: 24 }, (_, i) => `/${i + 1}.jpg`);
+  const pdfFiles = Array.from({ length: 24 }, (_, i) => `/${i + 1}.webp`);
 
   return (
     <div className="App">
