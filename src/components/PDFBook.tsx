@@ -98,6 +98,7 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                         src={url}
                                         alt={`Album ${index + 1}`}
                                         width={isMobile ? bookWidth : 500}
+                                        loading="lazy"
                                         height={bookHeight}
                                         style={{ display: 'block', margin: '0 auto', objectFit: 'contain' }}
                                     />
