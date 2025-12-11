@@ -15,6 +15,7 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
     const [zoom, setZoom] = useState(1);
     const [aspectRatio, setAspectRatio] = useState(709 / 500); // 高さ / 幅。初期は従来値
     const ratioFixedRef = useRef(false);
+    const pinchStartRef = useRef<{ dist: number; zoom: number } | null>(null);
 
     // ウィンドウサイズ更新
     useEffect(() => {
@@ -85,6 +86,29 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
         }
     };
 
+    // ピンチズーム（モバイル向け）
+    const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (event.touches.length === 2) {
+            const [t1, t2] = [event.touches[0], event.touches[1]];
+            const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            pinchStartRef.current = { dist, zoom };
+        }
+    };
+
+    const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (event.touches.length === 2 && pinchStartRef.current) {
+            event.preventDefault();
+            const [t1, t2] = [event.touches[0], event.touches[1]];
+            const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const scale = dist / pinchStartRef.current.dist;
+            setZoom(clampZoom(pinchStartRef.current.zoom * scale));
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (pinchStartRef.current) pinchStartRef.current = null;
+    };
+
     return (
         <div className="pdf-book-container">
             {!isMobile && <button className="nav-button prev" onClick={prevFlip}>&lt;</button>}
@@ -142,8 +166,8 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                             >
                                 {pngFiles.length > 0 && (
                                     <HTMLFlipBook
-                                        width={bookWidth}
-                                        height={bookHeight}
+                                        width={scaledWidth}
+                                        height={scaledHeight}
                                         size="fixed"
                                         minWidth={300}
                                         maxWidth={2000}
@@ -157,13 +181,13 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                         style={{ margin: '0 auto', pointerEvents: isZooming ? 'none' : 'auto' }}
                                         startPage={0}
                                         drawShadow={false}
-                                        flippingTime={1000}
+                                flippingTime={650}
                                         usePortrait={isMobile}
                                         startZIndex={0}
                                         autoSize={true}
                                         clickEventForward={true}
                                         useMouseEvents={true}
-                                        swipeDistance={30}
+                                swipeDistance={15}
                                         showPageCorners={false}
                                         disableFlipByClick={true}
                                         onFlip={onPageFlip}
@@ -174,9 +198,9 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                                     <img
                                                         src={url}
                                                         alt={`Album ${index + 1}`}
-                                                        width={bookWidth}
+                                                        width={scaledWidth}
                                                         loading="lazy"
-                                                        height={bookHeight}
+                                                        height={scaledHeight}
                                                         onLoad={handleImageLoad}
                                                     style={{
                                                         display: 'block',

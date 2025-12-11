@@ -41,6 +41,7 @@
     border-radius: 0;
     box-shadow: none;
     transition: none;
+    touch-action: none; // ピンチズームを自前で扱う
 }
 
 .book-scale {
@@ -98,6 +99,10 @@
     justify-content: center;
     align-items: center;
     transition: background-color 0.2s;
+    position: sticky;
+    top: 50vh; // 端末比率が変わっても中央近くに保持
+    transform: translateY(-50%);
+    z-index: 20;
 
     &:hover {
         background-color: rgba(0, 0, 0, 0.05);
