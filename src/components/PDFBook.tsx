@@ -121,7 +121,7 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                 */}
                 {(() => {
                     const isZooming = zoom > 1.01;
-                    const canSwipe = !isZooming; // ズーム中はスワイプでページ遷移させない
+
                     return (
                         <div
                             className="book-viewport"
