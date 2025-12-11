@@ -45,11 +45,15 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
 
     const onPageFlip = useCallback(() => setShowSwipeHint(false), []);
 
-    // FlipBookのサイズを動的に計算
+    // FlipBookのサイズを動的に計算（アルバムのアスペクト比を維持）
     // モバイルで左側に余白が出ないよう、横幅を端まで使う
-    const bookWidth = isMobile ? windowDimensions.width : 620;
+    const baseWidth = isMobile ? windowDimensions.width : 620;
     const controlReserve = 72; // ズームUIぶんの余白
-    const bookHeight = Math.min(windowDimensions.height * 0.9 - controlReserve, bookWidth * aspectRatio);
+    const targetHeight = baseWidth * aspectRatio;
+    const maxHeight = windowDimensions.height * 0.9 - controlReserve;
+    const scale = targetHeight > 0 ? Math.min(1, maxHeight / targetHeight) : 1; // 高さ制限が入る場合は縮小して比率維持
+    const bookWidth = baseWidth * scale;
+    const bookHeight = targetHeight * scale;
 
     const nextFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipNext(); };
     const prevFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipPrev(); };
