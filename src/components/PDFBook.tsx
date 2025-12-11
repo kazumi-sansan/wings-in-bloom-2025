@@ -12,6 +12,9 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
         height: window.innerHeight,
     });
     const bookRef = useRef<any>(null);
+    const [zoom, setZoom] = useState(1);
+    const [aspectRatio, setAspectRatio] = useState(709 / 500); // 高さ / 幅。初期は従来値
+    const ratioFixedRef = useRef(false);
 
     // ウィンドウサイズ更新
     useEffect(() => {
@@ -31,30 +34,51 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
     const [showSwipeHint, setShowSwipeHint] = useState(false);
     const [hintShown, setHintShown] = useState(false);
 
+    // モバイル初期表示時のみ猫の手ヒントを表示
     useEffect(() => {
-        const handleFirstTouch = () => {
-            if (!hintShown && window.innerWidth < 768) {
-                setShowSwipeHint(true);
-                setTimeout(() => setShowSwipeHint(false), 4000);
-                setHintShown(true);
-            }
-        };
-
-        window.addEventListener('touchstart', handleFirstTouch, { once: true });
-
-        return () => {
-            window.removeEventListener('touchstart', handleFirstTouch);
-        };
-    }, [hintShown]);
+        if (!isMobile || hintShown) return;
+        setShowSwipeHint(true);
+        const timer = setTimeout(() => setShowSwipeHint(false), 4000);
+        setHintShown(true);
+        return () => clearTimeout(timer);
+    }, [isMobile, hintShown]);
 
     const onPageFlip = useCallback(() => setShowSwipeHint(false), []);
 
     // FlipBookのサイズを動的に計算
-    const bookWidth = isMobile ? windowDimensions.width : 500;
-    const bookHeight = isMobile ? windowDimensions.height : 709;
+    const bookWidth = isMobile ? windowDimensions.width * 0.98 : 620;
+    const controlReserve = 72; // ズームUIぶんの余白
+    const bookHeight = Math.min(windowDimensions.height * 0.9 - controlReserve, bookWidth * aspectRatio);
 
     const nextFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipNext(); };
     const prevFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipPrev(); };
+
+    const clampZoom = (value: number) => Math.min(2.5, Math.max(1, value));
+
+    const handleWheelZoom = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+        // ピンチ（ctrlKey=true） or 修飾キー付きホイールでズーム
+        const wantZoom = event.ctrlKey || event.metaKey || event.altKey;
+        if (!wantZoom) return; // 通常スクロールはそのまま通す
+
+        event.preventDefault();
+        const delta = event.deltaY > 0 ? -0.12 : 0.12;
+        setZoom((z) => clampZoom(z + delta));
+    }, []);
+
+    const handleDoubleClickReset = () => setZoom(1);
+    const handleZoomIn = () => setZoom((z) => clampZoom(z + 0.15));
+    const handleZoomOut = () => setZoom((z) => clampZoom(z - 0.15));
+    const handleReset = () => setZoom(1);
+
+    const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+        if (ratioFixedRef.current) return;
+        const img = event.currentTarget;
+        if (img.naturalWidth && img.naturalHeight) {
+            const ratio = img.naturalHeight / img.naturalWidth;
+            setAspectRatio(ratio);
+            ratioFixedRef.current = true;
+        }
+    };
 
     return (
         <div className="pdf-book-container">
@@ -63,50 +87,79 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
             <div
                 className="pdf-document"
             >
-                {pngFiles.length > 0 && (
-                    <HTMLFlipBook
-                        width={bookWidth}
-                        height={bookHeight}
-                        size="fixed"
-                        minWidth={300}
-                        maxWidth={2000}
-                        minHeight={400}
-                        maxHeight={2000}
-                        maxShadowOpacity={0}
-                        showCover={true}
-                        mobileScrollSupport={true}
-                        className="flip-book"
-                        ref={bookRef}
-                        style={{ margin: '0 auto' }}
-                        startPage={0}
-                        drawShadow={false}
-                        flippingTime={1000}
-                        usePortrait={isMobile}
-                        startZIndex={0}
-                        autoSize={true}
-                        clickEventForward={true}
-                        useMouseEvents={true}
-                        swipeDistance={30}
-                        showPageCorners={false}
-                        disableFlipByClick={true}
-                        onFlip={onPageFlip}
-                    >
-                        {pngFiles.map((url, index) => (
-                            <div key={index} className="page">
-                                <div className="page-content">
-                                    <img
-                                        src={url}
-                                        alt={`Album ${index + 1}`}
-                                        width={isMobile ? bookWidth : 500}
-                                        loading="lazy"
+                <div className="zoom-controls">
+                    <button onClick={handleZoomOut} aria-label="縮小">-</button>
+                    <span className="zoom-display">{Math.round(zoom * 100)}%</span>
+                    <button onClick={handleZoomIn} aria-label="拡大">+</button>
+                    <button onClick={handleReset} aria-label="リセット">⟳</button>
+                </div>
+                {/*
+                    ズーム1倍時はスクロールを出さず、近付いたときのみスクロール許可。
+                */}
+                {(() => {
+                    const isZooming = zoom > 1.01;
+                    return (
+                        <div
+                            className="book-viewport"
+                            onWheel={handleWheelZoom}
+                            onDoubleClick={handleDoubleClickReset}
+                            style={{ overflow: isZooming ? 'auto' : 'hidden' }}
+                        >
+                            <div
+                                className="book-scale"
+                                style={{
+                                    transform: `scale(${zoom})`,
+                                }}
+                            >
+                                {pngFiles.length > 0 && (
+                                    <HTMLFlipBook
+                                        width={bookWidth}
                                         height={bookHeight}
-                                        style={{ display: 'block', margin: '0 auto', objectFit: 'contain' }}
-                                    />
-                                </div>
+                                        size="fixed"
+                                        minWidth={300}
+                                        maxWidth={2000}
+                                        minHeight={400}
+                                        maxHeight={2000}
+                                        maxShadowOpacity={0}
+                                        showCover={true}
+                                        mobileScrollSupport={true}
+                                        className="flip-book"
+                                        ref={bookRef}
+                                        style={{ margin: '0 auto' }}
+                                        startPage={0}
+                                        drawShadow={false}
+                                        flippingTime={1000}
+                                        usePortrait={isMobile}
+                                        startZIndex={0}
+                                        autoSize={true}
+                                        clickEventForward={true}
+                                        useMouseEvents={true}
+                                        swipeDistance={30}
+                                        showPageCorners={false}
+                                        disableFlipByClick={true}
+                                        onFlip={onPageFlip}
+                                    >
+                                        {pngFiles.map((url, index) => (
+                                            <div key={index} className="page">
+                                                <div className="page-content">
+                                                    <img
+                                                        src={url}
+                                                        alt={`Album ${index + 1}`}
+                                                        width={bookWidth}
+                                                        loading="lazy"
+                                                        height={bookHeight}
+                                                        onLoad={handleImageLoad}
+                                                        style={{ display: 'block', margin: '0 auto', objectFit: 'contain' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </HTMLFlipBook>
+                                )}
                             </div>
-                        ))}
-                    </HTMLFlipBook>
-                )}
+                        </div>
+                    );
+                })()}
             </div>
             {!isMobile && <button className="nav-button next" onClick={nextFlip}>&gt;</button>}
 

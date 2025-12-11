@@ -22,10 +22,59 @@
     align-items: center; // 縦方向中央
     min-height: auto; // 固定せず
     max-height: 100%;
-    padding: 20px;
-    gap: 20px;
+    padding: 0;
+    gap: 0;
     position: relative;
-    overflow: hidden; // ページが長ければスクロール
+    overflow: visible; // ナビやコントロールが切れないよう可視化
+}
+
+.book-viewport {
+    width: 100%;
+    max-width: 1200px;
+    max-height: calc(90vh - 48px); // コントロール高さぶん余白
+    margin: 0 auto;
+    padding: 0;
+    overflow: hidden; // 通常は非スクロール。ズーム時のみJSでautoへ
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    transition: none;
+}
+
+.book-scale {
+    display: inline-block;
+    transform-origin: center top;
+    transition: transform 0.15s ease-out;
+}
+
+.zoom-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    margin: 0;
+    font-size: 14px;
+
+    button {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 6px 10px;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+    }
+
+    .zoom-display {
+        min-width: 52px;
+        text-align: right;
+        color: #444;
+    }
 }
 
 
@@ -46,6 +95,14 @@
     &:hover {
         background-color: rgba(0, 0, 0, 0.05);
     }
+}
+
+.nav-button.prev {
+    margin-right: 16px; // 左ナビを本から少し離す
+}
+
+.nav-button.next {
+    margin-left: 8px;
 }
 
 .swipe-hint-overlay {
@@ -116,6 +173,36 @@
         gap: 0;
         height: 100vh;
         width: 100vw;
+    }
+
+    .zoom-controls {
+        padding: 6px 10px;
+        margin: 0;
+        justify-content: center;
+        background: #ffffffcc;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(4px);
+
+        button {
+            padding: 6px 10px;
+        }
+    }
+
+    .book-viewport {
+        width: 100vw;
+        height: calc(100vh - 24px);
+        max-width: none;
+        max-height: none;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+    }
+
+    .book-scale {
+        width: 100%;
     }
 
     .page {
