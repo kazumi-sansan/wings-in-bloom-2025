@@ -1,30 +1,20 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import HTMLFlipBook from 'react-pageflip';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 import './PDFBook.scss';
 
-// Set worker source
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-
-interface PDFBookProps {
-    pdfUrl: string;
+interface PNGBookProps {
+    pngFiles: string[]; // 24枚のPNGファイルURLを配列で渡す
 }
 
-const PDFBook: React.FC<PDFBookProps> = ({ pdfUrl }) => {
-    const [numPages, setNumPages] = useState<number>(0);
+const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
     const [windowDimensions, setWindowDimensions] = useState({
         width: window.innerWidth,
         height: window.innerHeight,
     });
     const bookRef = useRef<any>(null);
 
-    const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
-        setNumPages(numPages);
-    }, []);
-
-    React.useEffect(() => {
+    // ウィンドウサイズ更新
+    useEffect(() => {
         const handleResize = () => {
             setWindowDimensions({
                 width: window.innerWidth,
@@ -36,70 +26,44 @@ const PDFBook: React.FC<PDFBookProps> = ({ pdfUrl }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const isMobile = windowDimensions.width < 768;
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isMobile = isTouchDevice && windowDimensions.width < 768;
     const [showSwipeHint, setShowSwipeHint] = useState(false);
+    const [hintShown, setHintShown] = useState(false);
 
     useEffect(() => {
-        let startTimer: any;
-        let hideTimer: any;
-
-        if (isMobile && numPages > 0) {
-            // Delay showing the hint to ensure the album is fully rendered
-            startTimer = setTimeout(() => {
+        const handleFirstTouch = () => {
+            if (!hintShown && window.innerWidth < 768) {
                 setShowSwipeHint(true);
-                hideTimer = setTimeout(() => {
-                    setShowSwipeHint(false);
-                }, 4000);
-            }, 1000);
-        } else {
-            setShowSwipeHint(false);
-        }
+                setTimeout(() => setShowSwipeHint(false), 4000);
+                setHintShown(true);
+            }
+        };
+
+        window.addEventListener('touchstart', handleFirstTouch, { once: true });
 
         return () => {
-            clearTimeout(startTimer);
-            clearTimeout(hideTimer);
+            window.removeEventListener('touchstart', handleFirstTouch);
         };
-    }, [isMobile, numPages]);
+    }, [hintShown]);
 
-    const onPageFlip = useCallback(() => {
-        setShowSwipeHint(false);
-    }, []);
+    const onPageFlip = useCallback(() => setShowSwipeHint(false), []);
 
-    // Calculate dimensions
-    // Mobile: Use full width/height minus some padding if needed
-    // Desktop: Fixed size
+    // FlipBookのサイズを動的に計算
     const bookWidth = isMobile ? windowDimensions.width : 500;
     const bookHeight = isMobile ? windowDimensions.height : 709;
 
-    // Pages array helper
-    const pages = Array.from(new Array(numPages), (_, index) => index + 1);
-
-    const nextFlip = () => {
-        if (bookRef.current) {
-            bookRef.current.pageFlip().flipNext();
-        }
-    };
-
-    const prevFlip = () => {
-        if (bookRef.current) {
-            bookRef.current.pageFlip().flipPrev();
-        }
-    };
+    const nextFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipNext(); };
+    const prevFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipPrev(); };
 
     return (
         <div className="pdf-book-container">
-            {!isMobile && (
-                <button className="nav-button prev" onClick={prevFlip}>
-                    &lt;
-                </button>
-            )}
-            <Document
-                file={pdfUrl}
-                onLoadSuccess={onDocumentLoadSuccess}
+            {!isMobile && <button className="nav-button prev" onClick={prevFlip}>&lt;</button>}
+
+            <div
                 className="pdf-document"
-                loading={<div className="loading-spinner"></div>}
             >
-                {numPages > 0 && (
+                {pngFiles.length > 0 && (
                     <HTMLFlipBook
                         width={bookWidth}
                         height={bookHeight}
@@ -127,27 +91,24 @@ const PDFBook: React.FC<PDFBookProps> = ({ pdfUrl }) => {
                         disableFlipByClick={true}
                         onFlip={onPageFlip}
                     >
-                        {pages.map((pageNumber) => (
-                            <div key={pageNumber} className="page">
+                        {pngFiles.map((url, index) => (
+                            <div key={index} className="page">
                                 <div className="page-content">
-                                    <Page
-                                        pageNumber={pageNumber}
+                                    <img
+                                        src={url}
+                                        alt={`Album ${index + 1}`}
                                         width={isMobile ? bookWidth : 500}
-                                        renderAnnotationLayer={false}
-                                        renderTextLayer={false}
+                                        height={bookHeight}
+                                        style={{ display: 'block', margin: '0 auto', objectFit: 'contain' }}
                                     />
-
                                 </div>
                             </div>
                         ))}
                     </HTMLFlipBook>
                 )}
-            </Document>
-            {!isMobile && (
-                <button className="nav-button next" onClick={nextFlip}>
-                    &gt;
-                </button>
-            )}
+            </div>
+            {!isMobile && <button className="nav-button next" onClick={nextFlip}>&gt;</button>}
+
             {showSwipeHint && (
                 <div className="swipe-hint-overlay">
                     <img src="/cat_hand.png" alt="Swipe" className="hand-icon" />
@@ -157,4 +118,4 @@ const PDFBook: React.FC<PDFBookProps> = ({ pdfUrl }) => {
     );
 };
 
-export default PDFBook;
+export default PNGBook;
