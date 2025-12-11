@@ -46,12 +46,15 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
 
     const onPageFlip = useCallback(() => setShowSwipeHint(false), []);
 
-    // FlipBookのサイズを動的に計算
-    const bookWidth = isMobile ? windowDimensions.width * 0.98 : 620;
+    // FlipBookのサイズを動的に計算（アルバムのアスペクト比を維持）
+    // モバイルで左側に余白が出ないよう、横幅を端まで使う
+    const baseWidth = isMobile ? windowDimensions.width : 620;
     const controlReserve = 72; // ズームUIぶんの余白
-    const bookHeight = Math.min(windowDimensions.height * 0.9 - controlReserve, bookWidth * aspectRatio);
-    const scaledWidth = bookWidth * zoom;
-    const scaledHeight = bookHeight * zoom;
+    const targetHeight = baseWidth * aspectRatio;
+    const maxHeight = windowDimensions.height * 0.9 - controlReserve;
+    const scale = targetHeight > 0 ? Math.min(1, maxHeight / targetHeight) : 1; // 高さ制限が入る場合は縮小して比率維持
+    const bookWidth = baseWidth * scale;
+    const bookHeight = targetHeight * scale;
 
     const nextFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipNext(); };
     const prevFlip = () => { if (bookRef.current) bookRef.current.pageFlip().flipPrev(); };
@@ -114,31 +117,51 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                 className="pdf-document"
             >
                 <div className="zoom-controls">
+                    {isMobile && (
+                        <button
+                            className="nav-button mobile prev"
+                            onClick={prevFlip}
+                            aria-label="前のページへ"
+                        >
+                            &lt;
+                        </button>
+                    )}
                     <button onClick={handleZoomOut} aria-label="縮小">-</button>
                     <span className="zoom-display">{Math.round(zoom * 100)}%</span>
                     <button onClick={handleZoomIn} aria-label="拡大">+</button>
                     <button onClick={handleReset} aria-label="リセット">⟳</button>
+                    {isMobile && (
+                        <button
+                            className="nav-button mobile next"
+                            onClick={nextFlip}
+                            aria-label="次のページへ"
+                        >
+                            &gt;
+                        </button>
+                    )}
                 </div>
                 {/*
                     ズーム1倍時はスクロールを出さず、近付いたときのみスクロール許可。
                 */}
                 {(() => {
                     const isZooming = zoom > 1.01;
+                    const canSwipe = !isZooming; // ズーム中はスワイプでページ遷移させない
                     return (
                         <div
                             className="book-viewport"
                             onWheel={handleWheelZoom}
                             onDoubleClick={handleDoubleClickReset}
-                            onTouchStart={handleTouchStart}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
-                            style={{ overflow: isZooming ? 'auto' : 'hidden' }}
+                            // ズーム時は縦横どちらもスクロールできるようにする
+                            style={{
+                                overflow: isZooming ? 'auto' : 'hidden',
+                                touchAction: isZooming ? 'pan-x pan-y' : 'none',
+                            }}
                         >
                             <div
                                 className="book-scale"
                                 style={{
-                                    width: `${scaledWidth}px`,
-                                    height: `${scaledHeight}px`,
+                                    transform: `scale(${zoom})`,
+                                    transformOrigin: '0 0', // 左上起点で拡大して左右が切れないように
                                 }}
                             >
                                 {pngFiles.length > 0 && (
@@ -155,7 +178,7 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                         mobileScrollSupport={true}
                                         className="flip-book"
                                         ref={bookRef}
-                                        style={{ margin: '0 auto' }}
+                                        style={{ margin: '0 auto', pointerEvents: isZooming ? 'none' : 'auto' }}
                                         startPage={0}
                                         drawShadow={false}
                                 flippingTime={650}
@@ -179,7 +202,13 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                                         loading="lazy"
                                                         height={scaledHeight}
                                                         onLoad={handleImageLoad}
-                                                        style={{ display: 'block', margin: '0 auto', objectFit: 'contain' }}
+                                                    style={{
+                                                        display: 'block',
+                                                        margin: 0, // 余白なし
+                                                        width: '100%', // 親幅いっぱい
+                                                        height: 'auto',
+                                                        objectFit: 'contain',
+                                                    }}
                                                     />
                                                 </div>
                                             </div>
