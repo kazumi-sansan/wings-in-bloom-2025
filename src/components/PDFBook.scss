@@ -1,9 +1,11 @@
 .page {
-    background-color: white;
+    background-color: transparent; // 余白の白地をなくす
     box-shadow: none;
     overflow: hidden; // スクロール必要なら visible or auto
     width: 100%; // 親の幅に合わせる
     height: auto; // 自動で高さを調整
+    padding: 0; // 余白除去
+    margin: 0 !important; // ページ間の隙間をなくす
 
     &.-left,
     &.-right {
@@ -47,11 +49,16 @@
     transition: transform 0.15s ease-out;
 }
 
+.flip-book {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
 .zoom-controls {
     display: flex;
     gap: 8px;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     margin: 0;
     font-size: 14px;
 
@@ -213,6 +220,14 @@
         &.-right {
             border: none;
         }
+    }
+
+    .nav-button.mobile {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        border-radius: 10px;
+        margin: 0 4px;
     }
 }
 
