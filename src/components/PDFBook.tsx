@@ -91,7 +91,19 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
 
     const nextFlip = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
+        const before = getPageIndex(api);
+        console.log('[flip next] before:', before);
         api?.flipNext(); // 方向指定を外し確実に次ページへ
+         const after = getPageIndex(api);
+         console.log('[flip next] after:', after);
+        if(!isMobile||after === before||after==0)return;
+        window.setTimeout(() => {
+            if (before !== undefined && after === before) {
+                const target = Math.max(before+1, 0);
+                api.turnToPage?.(target);
+                console.log('[flip prev] fallback turnToPage:', target);
+            }
+        }, 150);
     }, []);
 
     const prevFlip = useCallback(() => {
