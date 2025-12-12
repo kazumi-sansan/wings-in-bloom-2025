@@ -156,7 +156,6 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
     const handleDoubleClickReset = () => setZoom(1);
     const handleZoomIn = () => setZoom((z) => clampZoom(z + 0.15));
     const handleZoomOut = () => setZoom((z) => clampZoom(z - 0.15));
-    const handleReset = () => setZoom(1);
 
     const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
         if (!ratioFixedRef.current) {
@@ -228,9 +227,6 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
             : (typeof fallback === 'number' ? fallback : 0);
         setCurrentPage(resolved);
     }, [getPageIndex]);
-
-    const totalPages = pngFiles.length;
-    const displayPage = totalPages > 0 ? Math.min(currentPage + 1, totalPages) : 0;
 
     return (
         <div className="pdf-book-container">
