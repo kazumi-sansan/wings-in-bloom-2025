@@ -30,6 +30,13 @@
     overflow: visible; // ナビやコントロールが切れないよう可視化
 }
 
+.pdf-document {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px; // コントロールとインジケーターに余白を追加
+}
+
 .book-viewport {
     width: 100%;
     max-width: 1200px;
@@ -61,9 +68,10 @@
     align-items: center;
     justify-content: center;
     margin: 0;
+
     font-size: 14px;
 
-    button {
+    .zoom-button {
         background: #fff;
         border: 1px solid #ddd;
         border-radius: 6px;
@@ -83,40 +91,40 @@
 
 
 .nav-button {
-    background: none;
-    border: 1px solid #ccc;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    background: transparent;
+    border: none;
+
+    width: 120px;
+    height: 80px;
+    padding: 0;
     cursor: pointer;
-    font-size: 20px;
-    color: #555;
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: background-color 0.2s;
+    transition: transform 0.12s ease, filter 0.12s ease;
     position: sticky;
     top: 50vh; // 端末比率が変わっても中央近くに保持
     transform: translateY(-50%);
     z-index: 20;
     touch-action: manipulation;
 
-    &:hover {
-        background-color: rgba(0, 0, 0, 0.05);
+    img {
+        width: 100%;
+        height: auto;
+        display: block;
+        pointer-events: none; // 画像上でもボタンがクリックされるように
+        filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
     }
-}
 
-.nav-button.prev {
-    margin-right: 16px; // 左ナビを本から少し離す
-}
-
-.nav-button.next {
-    margin-left: 8px;
+    &:hover {
+        transform: translateY(-50%) scale(1.04);
+        filter: brightness(1.02);
+    }
 }
 
 .swipe-hint-overlay {
     position: absolute;
-    top: 30%;
+    top: 40%;
     left: 80%;
     /* Moved to the right */
     transform: translate(-50%, -50%);
@@ -130,9 +138,9 @@
     animation: fadeOut 0.5s ease-out 3.5s forwards;
 
     .hand-icon {
-        width: 80px;
+        width: 100px;
         height: auto;
-        animation: swipeAnim 1.5s infinite ease-in-out;
+        animation: swipeAnim 2s infinite ease-in-out;
     }
 }
 
@@ -182,7 +190,7 @@
     }
 
     50% {
-        transform: translateX(-50px);
+        transform: translateX(-120px); // 動く幅を広げる
     }
 
     100% {
@@ -205,14 +213,12 @@
     }
 
     .zoom-controls {
-        padding: 6px 10px;
-        margin: 0;
         justify-content: center;
-        background: #ffffffcc;
-        position: sticky;
-        top: 0;
-        z-index: 50; // ボタンを本より前面に
-        backdrop-filter: blur(4px);
+        background: transparent;
+        position: static; // アルバムと重ならないよう通常フローに戻す
+        top: auto;
+        z-index: 1;
+        backdrop-filter: none;
 
         button {
             padding: 6px 10px;
@@ -221,10 +227,10 @@
 
     .book-viewport {
         width: 100vw;
-        height: calc(100vh - 24px);
+        height: calc(100vh - 140px); // コントロールぶんの高さを差し引き
         max-width: none;
         max-height: none;
-        padding: 0;
+        padding: 0 0 12px 0;
         border-radius: 0;
         box-shadow: none;
         background: transparent;
@@ -245,15 +251,18 @@
     }
 
     .nav-button.mobile {
-        width: 36px;
-        height: 36px;
-        font-size: 18px;
-        border-radius: 10px;
-        margin: 0 4px;
+        width: 100px;
+        height: 80px;
         position: static; // モバイルではフローティングさせず揺れを防ぐ
         top: auto;
         transform: none;
         z-index: 60; // モバイルで確実にタップできるよう前面に
+    }
+
+    .page-indicator {
+        align-self: center;
+        font-size: 15px;
+        padding: 7px 14px;
     }
 }
 

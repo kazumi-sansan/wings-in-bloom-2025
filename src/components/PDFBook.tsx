@@ -35,8 +35,11 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
 
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const isMobile = isTouchDevice && windowDimensions.width < 768;
+    // const showMobileIndicator = isMobile || windowDimensions.width < 820; // 狭い画面でも表示
     const [showSwipeHint, setShowSwipeHint] = useState(false);
     const [hintShown, setHintShown] = useState(false);
+    const [currentPage, setCurrentPage] = useState(0);
+    const preloadedRef = useRef<Set<string>>(new Set());
 
     // ローディング中はヒント非表示、読み込み完了後に一度だけ猫の手ヒントを表示（モバイル）
     useEffect(() => {
@@ -51,8 +54,6 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
         return () => clearTimeout(timer);
     }, [isMobile, hintShown, isLoading]);
 
-    const onPageFlip = useCallback(() => setShowSwipeHint(false), []);
-
     // 画像リストが変わった場合にローディング状態をリセット
     useEffect(() => {
         setLoadedCount(0);
@@ -60,6 +61,8 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
         ratioFixedRef.current = false;
         setShowSwipeHint(false);
         setHintShown(false);
+        setCurrentPage(0);
+        preloadedRef.current.clear();
         loadStartRef.current = Date.now();
         if (loadingTimerRef.current) {
             window.clearTimeout(loadingTimerRef.current);
@@ -78,7 +81,7 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
     const bookHeight = targetHeight * scale;
 
     // 本を捲る体験を残すためアニメーション付きflipを使用
-    const getPageIndex = (api: any) => {
+    const getPageIndex = useCallback((api: any) => {
         if (!api) return undefined;
         const p = api.getCurrentPage?.();
         if (typeof p === 'number') return p;
@@ -87,24 +90,27 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
         const obj = api.getCurrentPageObject?.();
         if (obj && typeof obj.pageIndex === 'number') return obj.pageIndex;
         return undefined;
-    };
+    }, []);
 
     const nextFlip = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api) return;
         const current = getPageIndex(api) ?? 0;
+        const total = api.getPageCount?.() ?? pngFiles.length;
 
         // モバイルはアニメーションを諦めて直接ページを進める
         if (isMobile) {
-            const total = api.getPageCount?.() ?? pngFiles.length;
             const target = Math.min(current + 1, Math.max(total - 1, 0));
             api.turnToPage?.(target);
             console.log('[next mobile turnToPage]', { current, target });
+            setCurrentPage(target);
             return;
         }
 
         console.log('[flip next] before:', current);
         api.flipNext();
+        const target = Math.min(current + 1, Math.max(total - 1, 0));
+        setCurrentPage(target);
         window.setTimeout(() => {
             const after = getPageIndex(api);
             console.log('[flip next] after:', after);
@@ -121,16 +127,19 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
             const target = Math.max(current - 1, 0);
             api.turnToPage?.(target);
             console.log('[prev mobile turnToPage]', { current, target });
+            setCurrentPage(target);
             return;
         }
 
         console.log('[flip prev] before:', current);
         api.flipPrev();
+        const target = Math.max(current - 1, 0);
+        setCurrentPage(target);
         window.setTimeout(() => {
             const after = getPageIndex(api);
             console.log('[flip prev] after:', after);
         }, 180);
-    }, [isMobile]);
+    }, [isMobile, pngFiles.length]);
 
     const clampZoom = (value: number) => Math.min(2.5, Math.max(1, value));
 
@@ -166,6 +175,26 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
         setLoadedCount((count) => count + 1);
     };
 
+    const preloadAroundPage = useCallback((pageIndex: number) => {
+        if (typeof Image === 'undefined' || pngFiles.length === 0) return;
+
+        const buffer = 2; // 前後何枚まで先読みするか
+        const start = Math.max(0, pageIndex - buffer);
+        const end = Math.min(pngFiles.length - 1, pageIndex + buffer);
+
+        for (let i = start; i <= end; i += 1) {
+            const url = pngFiles[i];
+            if (!url || preloadedRef.current.has(url)) continue;
+            const img = new Image();
+            img.src = url;
+            preloadedRef.current.add(url);
+        }
+    }, [pngFiles]);
+
+    useEffect(() => {
+        preloadAroundPage(currentPage);
+    }, [currentPage, preloadAroundPage]);
+
     // 全画像が遅延読み込みされるとスピナーが長時間残るため、
     // 最低1枚（または用意された枚数が少なければ全枚）読み込めば完了扱いにする。
     // ただしローディングが速い場合も1回転ぶん（約1.1s）は表示する。
@@ -189,6 +218,20 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
         }
     }, [loadedCount, pngFiles.length]);
 
+    const handleFlip = useCallback((e?: any) => {
+        setShowSwipeHint(false);
+        const eventPage = e?.data?.page ?? e?.data?.newPage ?? e?.data?.pageIndex;
+        const api = bookRef.current?.pageFlip?.();
+        const fallback = getPageIndex(api);
+        const resolved = typeof eventPage === 'number'
+            ? eventPage
+            : (typeof fallback === 'number' ? fallback : 0);
+        setCurrentPage(resolved);
+    }, [getPageIndex]);
+
+    const totalPages = pngFiles.length;
+    const displayPage = totalPages > 0 ? Math.min(currentPage + 1, totalPages) : 0;
+
     return (
         <div className="pdf-book-container">
             {isLoading && (
@@ -200,7 +243,15 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                     />
                 </div>
             )}
-            {!isMobile && <button className="nav-button prev" onClick={prevFlip}>&lt;</button>}
+            {!isMobile && (
+                <button
+                    className="nav-button prev"
+                    onClick={prevFlip}
+                    aria-label="前のページへ"
+                >
+                    <img src="/左.png" alt="前のページへ" />
+                </button>
+            )}
 
             <div
                 className="pdf-document"
@@ -212,26 +263,33 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                             onClick={prevFlip}
                             aria-label="前のページへ"
                         >
-                            &lt;
+                            <img src="/左.png" alt="前のページへ" />
                         </button>
                     )}
-                    <button onClick={handleZoomOut} aria-label="縮小">-</button>
+                    <button className="zoom-button" onClick={handleZoomOut} aria-label="縮小">-</button>
                     <span className="zoom-display">{Math.round(zoom * 100)}%</span>
-                    <button onClick={handleZoomIn} aria-label="拡大">+</button>
-                    <button onClick={handleReset} aria-label="リセット">⟳</button>
+                    <button className="zoom-button" onClick={handleZoomIn} aria-label="拡大">+</button>
+                    <button className="zoom-button"  aria-label="リセット">⟳</button>
                     {isMobile && (
                         <button
                             className="nav-button mobile next"
                             onClick={nextFlip}
                             aria-label="次のページへ"
                         >
-                            &gt;
+                            <img src="/右.png" alt="次のページへ" />
                         </button>
                     )}
                 </div>
-                {/*
-                    ズーム1倍時はスクロールを出さず、近付いたときのみスクロール許可。
-                */}
+                {/* {
+                showMobileIndicator && 
+                ( 
+                    <div className="page-indicator-container">
+                    <div className="page-indicator" aria-live="polite">
+                        {displayPage} / {totalPages}
+                    </div>
+                    </div>
+                  
+                )} */}
                 {(() => {
                     const isZooming = zoom > 1.01;
 
@@ -279,7 +337,7 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                         swipeDistance={20}
                                         showPageCorners={false}
                                         disableFlipByClick={true}
-                                        onFlip={onPageFlip}
+                                        onFlip={handleFlip}
                                     >
                                         {pngFiles.map((url, index) => (
                                             <div key={index} className="page">
@@ -291,14 +349,14 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                                                         loading="lazy"
                                                         height={bookHeight}
                                                         onLoad={handleImageLoad}
-                                                    onError={handleImageError}
-                                                    style={{
-                                                        display: 'block',
-                                                        margin: 0, // 余白なし
-                                                        width: '100%', // 親幅いっぱい
-                                                        height: 'auto',
-                                                        objectFit: 'contain',
-                                                    }}
+                                                        onError={handleImageError}
+                                                        style={{
+                                                            display: 'block',
+                                                            margin: 0, // 余白なし
+                                                            width: '100%', // 親幅いっぱい
+                                                            height: 'auto',
+                                                            objectFit: 'contain',
+                                                        }}
                                                     />
                                                 </div>
                                             </div>
@@ -310,11 +368,19 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
                     );
                 })()}
             </div>
-            {!isMobile && <button className="nav-button next" onClick={nextFlip}>&gt;</button>}
+            {!isMobile && (
+                <button
+                    className="nav-button next"
+                    onClick={nextFlip}
+                    aria-label="次のページへ"
+                >
+                    <img src="/右.png" alt="次のページへ" />
+                </button>
+            )}
 
             {showSwipeHint && (
                 <div className="swipe-hint-overlay">
-                    <img src="/cat_hand.png" alt="Swipe" className="hand-icon" />
+                    <img src="/swip_hint.png" alt="Swipe" className="hand-icon" />
                 </div>
             )}
         </div>
