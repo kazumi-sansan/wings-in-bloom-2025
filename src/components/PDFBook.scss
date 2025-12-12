@@ -71,11 +71,7 @@
         cursor: pointer;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
         transition: transform 0.1s ease, box-shadow 0.1s ease;
-
-        &:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-        }
+        touch-action: manipulation; // タップでもhover扱いにならないようにする
     }
 
     .zoom-display {
@@ -103,6 +99,7 @@
     top: 50vh; // 端末比率が変わっても中央近くに保持
     transform: translateY(-50%);
     z-index: 20;
+    touch-action: manipulation;
 
     &:hover {
         background-color: rgba(0, 0, 0, 0.05);
@@ -147,6 +144,26 @@
     height: 50px;
     animation: spin 1s linear infinite;
     margin: 20px auto;
+}
+
+.loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 30vh; // スワイプヒントと同じY位置付近に寄せる
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(2px);
+    z-index: 200;
+}
+
+.loading-spinner-image {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    animation: spin 1.5s linear infinite;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
 }
 
 @keyframes spin {
@@ -194,7 +211,7 @@
         background: #ffffffcc;
         position: sticky;
         top: 0;
-        z-index: 10;
+        z-index: 50; // ボタンを本より前面に
         backdrop-filter: blur(4px);
 
         button {
@@ -233,6 +250,17 @@
         font-size: 18px;
         border-radius: 10px;
         margin: 0 4px;
+        position: static; // モバイルではフローティングさせず揺れを防ぐ
+        top: auto;
+        transform: none;
+        z-index: 60; // モバイルで確実にタップできるよう前面に
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .zoom-controls button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
     }
 }
 
