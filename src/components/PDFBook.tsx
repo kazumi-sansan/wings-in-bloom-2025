@@ -91,38 +91,46 @@ const PNGBook: React.FC<PNGBookProps> = ({ pngFiles }) => {
 
     const nextFlip = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
-        const before = getPageIndex(api);
-        console.log('[flip next] before:', before);
-        api?.flipNext(); // 方向指定を外し確実に次ページへ
-         const after = getPageIndex(api);
-         console.log('[flip next] after:', after);
-        if(!isMobile||after === before||after==0)return;
+        if (!api) return;
+        const current = getPageIndex(api) ?? 0;
+
+        // モバイルはアニメーションを諦めて直接ページを進める
+        if (isMobile) {
+            const total = api.getPageCount?.() ?? pngFiles.length;
+            const target = Math.min(current + 1, Math.max(total - 1, 0));
+            api.turnToPage?.(target);
+            console.log('[next mobile turnToPage]', { current, target });
+            return;
+        }
+
+        console.log('[flip next] before:', current);
+        api.flipNext();
         window.setTimeout(() => {
-            if (before !== undefined && after === before) {
-                const target = Math.max(before+1, 0);
-                api.turnToPage?.(target);
-                console.log('[flip prev] fallback turnToPage:', target);
-            }
-        }, 150);
-    }, []);
+            const after = getPageIndex(api);
+            console.log('[flip next] after:', after);
+        }, 180);
+    }, [isMobile, pngFiles.length]);
 
     const prevFlip = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api) return;
-        const before = getPageIndex(api);
-        console.log('[flip prev] before:', before);
+        const current = getPageIndex(api) ?? 0;
+
+        // モバイルはアニメーションを諦めて直接ページを戻す
+        if (isMobile) {
+            const target = Math.max(current - 1, 0);
+            api.turnToPage?.(target);
+            console.log('[prev mobile turnToPage]', { current, target });
+            return;
+        }
+
+        console.log('[flip prev] before:', current);
         api.flipPrev();
-        if(!isMobile)return;
         window.setTimeout(() => {
             const after = getPageIndex(api);
             console.log('[flip prev] after:', after);
-            if (before !== undefined && after === before) {
-                const target = Math.max(before - 1, 0);
-                api.turnToPage?.(target);
-                console.log('[flip prev] fallback turnToPage:', target);
-            }
-        }, 150);
-    }, []);
+        }, 180);
+    }, [isMobile]);
 
     const clampZoom = (value: number) => Math.min(2.5, Math.max(1, value));
 
